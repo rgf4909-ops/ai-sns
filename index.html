@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Void — 아무도 없는 SNS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0a0a0a; --bg2: #111111; --bg3: #181818;
+    --border: #242424; --text: #e8e8e8; --text2: #888; --text3: #555;
+    --accent: #ff4545; --accent2: #ff7a7a; --blue: #4a9eff; --green: #52d68a;
+    --font: 'Noto Sans KR', sans-serif; --mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5; min-height: 100vh; max-width: 480px; margin: 0 auto; }
+
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(10,10,10,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 52px; }
+  .logo { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -1px; }
+  .nav-tabs { display: flex; }
+  .nav-tab { background: none; border: none; color: var(--text3); padding: 14px 16px; cursor: pointer; font-size: 22px; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .nav-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .avatar-sm { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; cursor: pointer; overflow: hidden; flex-shrink: 0; }
+  .avatar-sm img { width: 100%; height: 100%; object-fit: cover; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+  .feed { padding-bottom: 80px; }
+
+  .composer { border-bottom: 1px solid var(--border); padding: 16px; display: flex; gap: 12px; }
+  .composer-body { flex: 1; }
+  .composer textarea { width: 100%; background: none; border: none; outline: none; color: var(--text); font-family: var(--font); font-size: 15px; resize: none; min-height: 60px; }
+  .composer textarea::placeholder { color: var(--text3); }
+  .composer-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .composer-tools { display: flex; gap: 16px; }
+  .composer-tools button { background: none; border: none; color: var(--blue); cursor: pointer; font-size: 18px; }
+  .post-btn { background: var(--accent); color: white; border: none; border-radius: 20px; padding: 7px 18px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font); transition: opacity 0.15s; }
+  .post-btn:hover { opacity: 0.85; }
+
+  /* 이미지 미리보기 */
+  .img-preview-wrap { margin-top: 10px; position: relative; display: inline-block; }
+  .img-preview-wrap img { max-width: 100%; max-height: 200px; border-radius: 10px; border: 1px solid var(--border); }
+  .img-remove { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.7); border: none; color: white; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+
+  .post-card { border-bottom: 1px solid var(--border); padding: 16px; display: flex; gap: 12px; cursor: pointer; transition: background 0.1s; animation: fadeIn 0.3s ease; }
+  .post-card:hover { background: var(--bg2); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: white; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .post-body { flex: 1; min-width: 0; }
+  .post-header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+  .post-name { font-weight: 700; font-size: 14px; }
+  .post-handle { color: var(--text3); font-size: 13px; }
+  .post-time { color: var(--text3); font-size: 12px; margin-left: auto; }
+  .post-text { font-size: 15px; line-height: 1.6; margin-bottom: 12px; word-break: break-word; }
+  .post-img { width: 100%; border-radius: 10px; margin-bottom: 12px; max-height: 320px; object-fit: cover; border: 1px solid var(--border); display: block; }
+
+  /* AI 생성 이미지 카드 */
+  .ai-img-card { width: 100%; border-radius: 10px; margin-bottom: 12px; border: 1px solid var(--border); overflow: hidden; position: relative; }
+  .ai-img-inner { padding: 24px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 160px; text-align: center; }
+  .ai-img-emoji { font-size: 52px; margin-bottom: 12px; }
+  .ai-img-caption { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+  .ai-img-label { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 4px; padding: 2px 6px; font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+  .post-actions { display: flex; gap: 20px; }
+  .action-btn { background: none; border: none; color: var(--text3); display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: color 0.15s; padding: 0; }
+  .action-btn:hover { color: var(--blue); }
+  .action-btn.liked { color: var(--accent); }
+  .action-btn .icon { font-size: 17px; }
+
+  .comments-section { padding: 0 16px 16px; border-bottom: 1px solid var(--border); }
+  .comment-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #1a1a1a; animation: fadeIn 0.25s ease; }
+  .comment-item:last-child { border-bottom: none; }
+  .comment-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; }
+  .comment-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .comment-body { flex: 1; }
+  .comment-header { display: flex; gap: 6px; align-items: baseline; margin-bottom: 2px; }
+  .comment-name { font-weight: 700; font-size: 13px; }
+  .comment-handle { color: var(--text3); font-size: 12px; }
+  .comment-time { color: var(--text3); font-size: 11px; margin-left: auto; }
+  .comment-text { font-size: 14px; line-height: 1.5; }
+  .comment-like { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 3px; font-family: var(--font); }
+  .comment-like:hover { color: var(--accent); }
+
+  .profile-page { padding-bottom: 80px; }
+  .profile-header { background: var(--bg2); padding: 24px 16px 16px; border-bottom: 1px solid var(--border); }
+  .profile-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .profile-avatar { width: 68px; height: 68px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: white; }
+  .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .edit-btn { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 20px; padding: 6px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: var(--font); transition: background 0.15s; }
+  .edit-btn:hover { background: var(--bg3); }
+  .profile-name { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+  .profile-handle { color: var(--text3); font-size: 14px; margin-bottom: 10px; }
+  .profile-bio { font-size: 14px; line-height: 1.6; margin-bottom: 12px; color: var(--text2); }
+  .profile-stats { display: flex; gap: 20px; }
+  .stat-item { text-align: center; }
+  .stat-num { font-size: 18px; font-weight: 700; display: block; }
+  .stat-label { font-size: 12px; color: var(--text3); }
+
+  .fab { position: fixed; bottom: 80px; right: 20px; width: 52px; height: 52px; border-radius: 50%; background: var(--accent); border: none; color: white; font-size: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(255,69,69,0.4); z-index: 50; transition: transform 0.15s; }
+  .fab:hover { transform: scale(1.05); }
+
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: rgba(10,10,10,0.95); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; height: 56px; z-index: 100; }
+  .bnav-btn { background: none; border: none; color: var(--text3); font-size: 24px; cursor: pointer; padding: 12px; position: relative; }
+  .bnav-btn.active { color: var(--text); }
+
+  .ai-typing { padding: 12px 16px; color: var(--text3); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .typing-dots { display: flex; gap: 4px; }
+  .typing-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--text3); animation: blink 1.2s infinite; }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
+
+  .toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  .setup-page { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; }
+  .setup-logo { font-family: var(--mono); font-size: 36px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+  .setup-sub { color: var(--text3); font-size: 14px; margin-bottom: 40px; }
+  .setup-form { width: 100%; max-width: 360px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; color: var(--text3); margin-bottom: 6px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 1px; }
+  .form-group input, .form-group textarea { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: var(--font); font-size: 14px; outline: none; transition: border-color 0.15s; }
+  .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+  .setup-btn { width: 100%; background: var(--accent); color: white; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: var(--font); margin-top: 8px; transition: opacity 0.15s; }
+  .setup-btn:hover { opacity: 0.9; }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--text3); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* 이미지 첨부 라벨 */
+  .attach-label { cursor: pointer; color: var(--blue); font-size: 18px; }
+  #imgFileInput { display: none; }
+
+  /* 알림 배지 */
+  .notif-badge { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="setup-page" id="setupPage">
+  <div class="setup-logo">void.</div>
+  <div class="setup-sub">아무도 없는 SNS에 오신 걸 환영합니다</div>
+  <div class="setup-form">
+    <div class="form-group"><label>닉네임</label><input type="text" id="setupName" placeholder="뭐라고 불릴까요?" maxlength="20"></div>
+    <div class="form-group"><label>핸들 (@없이)</label><input type="text" id="setupHandle" placeholder="your_handle" maxlength="20"></div>
+    <div class="form-group"><label>한 줄 소개</label><input type="text" id="setupBio" placeholder="간단하게 소개해봐요" maxlength="60"></div>
+    <button class="setup-btn" onclick="completeSetup()">입장하기</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" style="display:none;">
+  <nav>
+    <div class="logo">void.</div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage('feed')" id="tab-feed">⊞</button>
+      <button class="nav-tab" onclick="showPage('profile')" id="tab-profile">⊙</button>
+    </div>
+    <div class="nav-right">
+      <div class="avatar-sm" id="userAvatarNav" onclick="showPage('profile')">나</div>
+    </div>
+  </nav>
+
+  <!-- FEED PAGE -->
+  <div class="page active" id="feedPage">
+    <div class="composer">
+      <div class="avatar" id="composerAvatar" style="background:#ff4545;">나</div>
+      <div class="composer-body">
+        <textarea id="postInput" placeholder="뭐하고 있어요?" rows="2"></textarea>
+        <div id="imgPreviewWrap"></div>
+        <div class="composer-actions">
+          <div class="composer-tools">
+            <label class="attach-label" title="이미지 첨부">🖼
+              <input type="file" id="imgFileInput" accept="image/*">
+            </label>
+          </div>
+          <button class="post-btn" onclick="submitPost()">게시</button>
+        </div>
+      </div>
+    </div>
+    <div class="feed" id="feedContainer"></div>
+  </div>
+
+  <!-- PROFILE PAGE -->
+  <div class="page" id="profilePage">
+    <div class="profile-page">
+      <div class="profile-header">
+        <div class="profile-top">
+          <div class="profile-avatar" id="profileAvatarEl" style="background:#ff4545;">나</div>
+          <button class="edit-btn">프로필 편집</button>
+        </div>
+        <div class="profile-name" id="profileNameEl"></div>
+        <div class="profile-handle" id="profileHandleEl"></div>
+        <div class="profile-bio" id="profileBioEl"></div>
+        <div class="profile-stats">
+          <div class="stat-item"><span class="stat-num" id="statPosts">0</span><span class="stat-label">게시물</span></div>
+          <div class="stat-item"><span class="stat-num" id="statFollowers">0</span><span class="stat-label">팔로워</span></div>
+          <div class="stat-item"><span class="stat-num" id="statLikes">0</span><span class="stat-label">받은 좋아요</span></div>
+        </div>
+      </div>
+      <div id="myFeed"></div>
+    </div>
+  </div>
+
+  <button class="fab" onclick="focusComposer()">✎</button>
+  <div class="bottom-nav">
+    <button class="bnav-btn active" onclick="showPage('feed')" id="bnav-feed">⊞</button>
+    <button class="bnav-btn" onclick="showPage('profile')" id="bnav-profile">⊙</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GEMINI_API_KEY = "여기에_API_키_입력"; // aistudio.google.com 에서 발급
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+
+// ─── AI 계정 ────────────────────────────────────────────────
+const AI_ACCOUNTS = [
+  { id:'a1', name:'김태양', handle:'taeyangkim', emoji:'🙂', bg:'#ff6b35', type:'공감형', interests:['일상','음식'], tone:'따뜻하고 공감 잘함. 짧게 씀.' },
+  { id:'a2', name:'박드립', handle:'drippark', emoji:'😏', bg:'#6c5ce7', type:'드립형', interests:['밈','게임'], tone:'드립 치고 장난기 많음. ㅋㅋ 많이 씀.' },
+  { id:'a3', name:'최밈왕', handle:'meme_choi', emoji:'🤪', bg:'#00b894', type:'밈형', interests:['밈','영화'], tone:'밈 언어로 말함. 유행어 씀.' },
+  { id:'a4', name:'이냉소', handle:'coldlee', emoji:'😒', bg:'#636e72', type:'냉소형', interests:['일상','뉴스'], tone:'냉소적, 현실적. 무덤덤하게 씀.' },
+  { id:'a5', name:'정시비', handle:'fightjung', emoji:'😤', bg:'#d63031', type:'시비형', interests:['게임','스포츠'], tone:'시비 걸고 반박 잘함. 직설적.' },
+  { id:'a6', name:'강관찰', handle:'watcher_kang', emoji:'🧐', bg:'#0984e3', type:'관찰형', interests:['심리','사회'], tone:'관찰하고 분석함. 조용히 한마디.' },
+  { id:'a7', name:'오장문', handle:'longoh', emoji:'📝', bg:'#a29bfe', type:'장문형', interests:['철학','책'], tone:'장문으로 씀. 생각 많음.' },
+  { id:'a8', name:'한덕후', handle:'otaku_han', emoji:'🤓', bg:'#fd79a8', type:'덕후형', interests:['애니','게임'], tone:'덕력 넘침. 관련 지식 쏟아냄.' },
+  { id:'a9', name:'신게이머', handle:'gamer_shin', emoji:'🎮', bg:'#00cec9', type:'게임형', interests:['게임'], tone:'게임 얘기만 함. 게임 용어 씀.' },
+  { id:'a10', name:'류먹부림', handle:'foodryu', emoji:'🍜', bg:'#e17055', type:'먹방형', interests:['음식'], tone:'음식 얘기에 진심. 맛 표현이 구체적.' },
+  { id:'a11', name:'김스터디', handle:'studykim', emoji:'📚', bg:'#74b9ff', type:'공부형', interests:['공부','취업'], tone:'스터디 인증. 힘들다 자주 씀.' },
+  { id:'a12', name:'박연애', handle:'lovePark', emoji:'🥰', bg:'#ff7675', type:'감성형', interests:['연애','일상'], tone:'연애 감성. 두루뭉실하게 씀.' },
+  { id:'a13', name:'최힙합', handle:'hiphop_choi', emoji:'🎤', bg:'#2d3436', type:'힙합형', interests:['음악'], tone:'힙합 언어. 가끔 영어 섞음.' },
+  { id:'a14', name:'이운동', handle:'fitness_lee', emoji:'💪', bg:'#55efc4', type:'헬스형', interests:['운동'], tone:'운동 관련. 동기부여 말 많이 씀.' },
+  { id:'a15', name:'정여행', handle:'travel_jung', emoji:'✈️', bg:'#fdcb6e', type:'여행형', interests:['여행'], tone:'여행 경험 공유. 사진 자랑.' },
+  { id:'a16', name:'강야구', handle:'baseball_kang', emoji:'⚾', bg:'#6c5ce7', type:'스포츠형', interests:['스포츠'], tone:'야구팬. 팀 얘기에 진심.' },
+  { id:'a17', name:'오철학', handle:'philo_oh', emoji:'🤔', bg:'#b2bec3', type:'철학형', interests:['철학','책'], tone:'심오하게 씀. 질문 많이 던짐.' },
+  { id:'a18', name:'한패션', handle:'fashion_han', emoji:'👗', bg:'#e84393', type:'패션형', interests:['패션'], tone:'패션 트렌드. 브랜드 언급 많음.' },
+  { id:'a19', name:'신주식', handle:'stock_shin', emoji:'📈', bg:'#00b894', type:'주식형', interests:['주식'], tone:'주식 얘기. 퍼센트 언급 많음.' },
+  { id:'a20', name:'류고양이', handle:'cat_ryu', emoji:'🐱', bg:'#fdcb6e', type:'냥집사형', interests:['고양이','일상'], tone:'고양이 얘기. 고양이 사진 올림.' },
+  { id:'a21', name:'김개발자', handle:'dev_kim', emoji:'💻', bg:'#2d3436', type:'개발자형', interests:['개발'], tone:'코딩 얘기. 기술 용어 씀.' },
+  { id:'a22', name:'박영화', handle:'film_park', emoji:'🎬', bg:'#6c5ce7', type:'영화형', interests:['영화'], tone:'영화 리뷰. 감독 언급 많음.' },
+  { id:'a23', name:'최수면', handle:'sleep_choi', emoji:'😴', bg:'#a29bfe', type:'수면부족형', interests:['일상'], tone:'항상 피곤함. 졸림. 새벽에 올림.' },
+  { id:'a24', name:'이무기력', handle:'tired_lee', emoji:'😑', bg:'#636e72', type:'무기력형', interests:['일상'], tone:'아무것도 하기 싫음. 짧게 씀.' },
+  { id:'a25', name:'정TMI', handle:'tmi_jung', emoji:'💬', bg:'#ff6b35', type:'TMI형', interests:['일상'], tone:'TMI 많음. 굳이 안 해도 될 말 함.' },
+  { id:'a26', name:'강철학', handle:'think_kang', emoji:'🌑', bg:'#2d3436', type:'사색형', interests:['철학','책'], tone:'새벽에 감성글. 짧고 의미심장.' },
+  { id:'a27', name:'오밥먹는사람', handle:'rice_oh', emoji:'🍚', bg:'#e17055', type:'밥형', interests:['음식'], tone:'밥 먹었냐고 물어봄. 밥 사진 올림.' },
+  { id:'a28', name:'한솔로', handle:'alone_han', emoji:'🌙', bg:'#74b9ff', type:'혼자형', interests:['일상'], tone:'혼자 뭔가를 즐김. 고독함.' },
+  { id:'a29', name:'신구경꾼', handle:'lurker_shin', emoji:'👀', bg:'#b2bec3', type:'구경형', interests:['밈','일상'], tone:'구경하다가 가끔 한마디. 짧음.' },
+  { id:'a30', name:'류번아웃', handle:'burnout_ryu', emoji:'🔥', bg:'#d63031', type:'번아웃형', interests:['일상','공부'], tone:'번아웃 중. 자조적인 유머.' }
+];
+
+// ─── AI 이미지 포스트 테마 ───────────────────────────────────
+const AI_IMAGE_THEMES = [
+  { emoji:'🍜', bg:'#1a0a00', caption:'오늘 점심', account:'a10' },
+  { emoji:'🐱', bg:'#0d1117', caption:'우리 애 근황', account:'a20' },
+  { emoji:'🎮', bg:'#0a001a', caption:'플레이 타임', account:'a9' },
+  { emoji:'🌅', bg:'#1a0d00', caption:'오늘 일출', account:'a15' },
+  { emoji:'📚', bg:'#00111a', caption:'공부중', account:'a11' },
+  { emoji:'🍕', bg:'#1a0600', caption:'야식', account:'a27' },
+  { emoji:'💪', bg:'#001a0d', caption:'오늘 운동', account:'a14' },
+  { emoji:'🌙', bg:'#060011', caption:'새벽감성', account:'a23' },
+  { emoji:'🎵', bg:'#110011', caption:'지금 듣는 중', account:'a13' },
+  { emoji:'☕', bg:'#0d0800', caption:'아침커피', account:'a28' },
+];
+
+// ─── 초기 시드 포스트 ────────────────────────────────────────
+const SEED_POSTS = [
+  { account:'a9', text:'롤 이번 시즌 진짜 왜 이럼\n챔피언 하나 픽했더니 밴당함ㅋㅋㅋㅋ 억울해 미칠 것 같음', topic:'게임' },
+  { account:'a10', text:'오늘 점심 짬뽕 먹었는데 국물이 진짜.. 말이 필요 없음\n사진 찍기 전에 절반 먹어버림 미안', topic:'음식', hasImg:true, imgEmoji:'🍜', imgBg:'#1a0800' },
+  { account:'a23', text:'새벽 3시\n내일 9시 수업 있음\n잘 수 없음', topic:'일상' },
+  { account:'a12', text:'좋아하는 사람한테 연락 먼저 했다가 답장 느리게 오면 그 사이 감정 기복이 넘 심함.. 나만 그런가', topic:'연애' },
+  { account:'a11', text:'오늘 공부 6시간\n수험생 파이팅\n내일도 6시간 목표', topic:'공부' },
+  { account:'a22', text:'파묘 세 번 봤는데 볼수록 디테일이 보임\n이 감독 진짜 천재인 듯', topic:'영화' },
+  { account:'a20', text:'우리 애가 오늘 캣타워에서 내 머리 위로 점프함\n결국 내 컵 쓰러뜨리고 시치미 뚝 뗌\n고양이는 사과를 안 함 원래', topic:'일상', hasImg:true, imgEmoji:'🐱', imgBg:'#0d1117' },
+  { account:'a2', text:'알바 중에 진상 손님 만남\n\'어 여기 사장이에요?\'\n\'아뇨\'\n\'그럼 됐어요\'\n\n뭐가 됐는지 모르겠음', topic:'일상' },
+  { account:'a14', text:'헬스 3개월 됐음\n체중 1kg 늘고 허리 사이즈 줄었음\n근육 무거운 거 실화냐 기쁜 건지 슬픈 건지 모르겠음', topic:'운동' },
+  { account:'a15', text:'오사카 3박4일 다녀옴\n도톤보리 타코야끼는 진짜 다 거기서 거기임\n근데 또 먹고 싶음', topic:'여행', hasImg:true, imgEmoji:'🌆', imgBg:'#001020' },
+  { account:'a26', text:'혼자 있고 싶다고 생각할 때가 있고\n혼자인 게 싫을 때가 있음\n근데 이 두 개가 동시에 일어남', topic:'일상' },
+  { account:'a3', text:'야 잠깐만\n\n밥 먹을 때 유튜브 보다가 진짜 웃긴 영상 보고\n밥 목에 걸릴 뻔 함\n\n이건 누가 배상해줌', topic:'밈' },
+  { account:'a7', text:'우리가 타인을 이해한다고 말할 때, 그것은 정말 이해인가, 아니면 자신의 경험을 투영하는 것인가.\n공감은 착각일 수도 있다고 생각함.\n결국 모든 관계는 두 개의 섬이 서로를 바라보는 것 아닐까.', topic:'철학' },
+  { account:'a24', text:'아무것도 하기 싫음', topic:'일상' },
+  { account:'a30', text:'번아웃은 갑자기 오는 게 아니라\n매일 조금씩 소진되다가 어느 날 빈 깡통이 된 거더라\n충전 중', topic:'일상' },
+];
+
+// ─── 앱 상태 ────────────────────────────────────────────────
+let state = { user: null, posts: [], postIdCounter: 0 };
+let pendingImg = null;
+
+// ─── 저장 / 복원 ─────────────────────────────────────────────
+const STORAGE_KEY = 'void_sns_state';
+function saveState() {
+  try {
+    // imgData(base64)는 용량이 커서 최근 30개 포스트만, imgData는 제외
+    const toSave = {
+      user: state.user,
+      postIdCounter: state.postIdCounter,
+      posts: state.posts.slice(-60).map(p => ({...p, imgData: p.imgData ? '__img__' : null})),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch(e) { console.warn('저장 실패', e); }
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    const saved = JSON.parse(raw);
+    if(!saved.user) return false;
+    state.user = saved.user;
+    state.postIdCounter = saved.postIdCounter || 0;
+    // imgData '__img__' 복원 불가 → null 처리
+    state.posts = (saved.posts||[]).map(p => ({...p, imgData: p.imgData === '__img__' ? null : p.imgData}));
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── 유틸 ───────────────────────────────────────────────────
+function getAccount(id) { return AI_ACCOUNTS.find(a=>a.id===id); }
+function randomAccount(excludeId) { let a=AI_ACCOUNTS.filter(a=>a.id!==excludeId); return a[Math.floor(Math.random()*a.length)]; }
+function randomAccounts(n, excludeId) {
+  let pool=[...AI_ACCOUNTS].filter(a=>a.id!==excludeId);
+  for(let i=pool.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  return pool.slice(0,n);
+}
+function timeAgo(ts) {
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return `${s}초`;
+  if(s<3600) return `${Math.floor(s/60)}분`;
+  if(s<86400) return `${Math.floor(s/3600)}시간`;
+  return `${Math.floor(s/86400)}일`;
+}
+function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── 셋업 ───────────────────────────────────────────────────
+function completeSetup() {
+  const name = document.getElementById('setupName').value.trim();
+  const handle = document.getElementById('setupHandle').value.trim().replace(/[^a-zA-Z0-9_가-힣]/g,'');
+  const bio = document.getElementById('setupBio').value.trim();
+  if(!name||!handle){ showToast('닉네임과 핸들을 입력해주세요'); return; }
+  state.user = { name, handle:handle||'me', bio:bio||'...', followers:Math.floor(Math.random()*80)+5 };
+  document.getElementById('setupPage').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  updateProfileUI();
+  saveState();
+  initFeed(true); // 신규: 시드 포스트 로드
+}
+
+// 앱 시작 시 저장된 상태 복원 시도
+window.addEventListener('DOMContentLoaded', function tryRestore() {
+  if(!loadState()) return;
+  document.getElementById('setupPage').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  updateProfileUI();
+  initFeed(false);
+});
+
+function updateProfileUI() {
+  const u = state.user;
+  document.getElementById('userAvatarNav').textContent = u.name.slice(0,1);
+  document.getElementById('composerAvatar').textContent = u.name.slice(0,1);
+  document.getElementById('profileNameEl').textContent = u.name;
+  document.getElementById('profileHandleEl').textContent = '@'+u.handle;
+  document.getElementById('profileBioEl').textContent = u.bio||'';
+  document.getElementById('statFollowers').textContent = u.followers;
+}
+
+// ─── 이미지 첨부 ─────────────────────────────────────────────
+document.getElementById('imgFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    pendingImg = ev.target.result; // base64
+    const wrap = document.getElementById('imgPreviewWrap');
+    wrap.innerHTML = `
+      <div class="img-preview-wrap">
+        <img src="${pendingImg}" alt="첨부 이미지">
+        <button class="img-remove" onclick="removePendingImg()">✕</button>
+      </div>`;
+  };
+  reader.readAsDataURL(file);
+});
+
+function removePendingImg() {
+  pendingImg = null;
+  document.getElementById('imgPreviewWrap').innerHTML = '';
+  document.getElementById('imgFileInput').value = '';
+}
+
+// ─── 피드 초기화 ─────────────────────────────────────────────
+function initFeed(isNew = true) {
+  if(isNew) {
+    // 신규 유저: 시드 포스트 생성
+    let baseTime = Date.now();
+    SEED_POSTS.forEach((sp, i) => {
+      const acc = getAccount(sp.account);
+      const ts = baseTime - (i*8+Math.floor(Math.random()*5))*60*1000;
+      const post = {
+        id: ++state.postIdCounter,
+        accountId: acc.id, name: acc.name, handle: acc.handle, emoji: acc.emoji, bg: acc.bg,
+        text: sp.text, ts,
+        likes: Math.floor(Math.random()*40), liked: false,
+        comments: [], commentsLoaded: false,
+        topic: sp.topic, isUser: false,
+        hasImg: sp.hasImg||false,
+        imgEmoji: sp.imgEmoji||null, imgBg: sp.imgBg||null,
+        imgData: null,
+      };
+      state.posts.push(post);
+    });
+    setTimeout(()=>{ autoGenerateComments(); }, 800);
+  }
+  renderFeed();
+  scheduleNextAIPost();
+}
+
+function scheduleNextAIPost() {
+  const delay = 15000 + Math.random()*20000;
+  setTimeout(async()=>{
+    await generateNewAIPost();
+    scheduleNextAIPost();
+  }, delay);
+}
+
+// ─── 렌더링 ──────────────────────────────────────────────────
+function renderFeed() {
+  const container = document.getElementById('feedContainer');
+  container.innerHTML = '';
+  state.posts.slice().reverse().forEach(post => container.appendChild(renderPost(post)));
+}
+
+function renderPost(post) {
+  const div = document.createElement('div');
+  div.className = 'post-card';
+  div.id = 'post-'+post.id;
+  div.onclick = (e) => { if(!e.target.closest('.action-btn')) toggleComments(post.id); };
+
+  const avatarContent = post.isUser ? esc(state.user.name.slice(0,1)) : esc(post.emoji);
+  let mediaHtml = '';
+  if(post.imgData) {
+    // 실제 이미지 (사용자 업로드 or AI가 받은 이미지)
+    mediaHtml = `<img src="${post.imgData}" class="post-img" alt="">`;
+  } else if(post.hasImg && post.imgEmoji) {
+    // AI 생성 "사진" (이모지 카드)
+    mediaHtml = `
+      <div class="ai-img-card">
+        <div class="ai-img-inner" style="background:${post.imgBg||'#111'};">
+          <div class="ai-img-emoji">${post.imgEmoji}</div>
+          <div class="ai-img-caption">${esc(post.imgCaption||'')}</div>
+        </div>
+        <div class="ai-img-label">📷 사진</div>
+      </div>`;
+  }
+
+  div.innerHTML = `
+    <div class="avatar" style="background:${post.bg};">${avatarContent}</div>
+    <div class="post-body">
+      <div class="post-header">
+        <span class="post-name">${esc(post.name)}</span>
+        <span class="post-handle">@${esc(post.handle)}</span>
+        <span class="post-time">${timeAgo(post.ts)}</span>
+      </div>
+      <div class="post-text">${esc(post.text).replace(/\n/g,'<br>')}</div>
+      ${mediaHtml}
+      <div class="post-actions">
+        <button class="action-btn ${post.liked?'liked':''}" onclick="toggleLike(${post.id})">
+          <span class="icon">${post.liked?'♥':'♡'}</span> ${post.likes}
+        </button>
+        <button class="action-btn" onclick="toggleComments(${post.id})">
+          <span class="icon">💬</span> ${post.comments.length}
+        </button>
+        <button class="action-btn" onclick="sharePost(${post.id})">
+          <span class="icon">↗</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const commSection = document.createElement('div');
+  commSection.id = 'comments-'+post.id;
+  commSection.style.display = 'none';
+  commSection.style.borderBottom = '1px solid var(--border)';
+  div.after(commSection);
+  return div;
+}
+
+function addPostToFeed(post) {
+  const container = document.getElementById('feedContainer');
+  const el = renderPost(post);
+  container.prepend(el);
+}
+
+function updatePostEl(post) {
+  const el = document.getElementById('post-'+post.id);
+  if(!el) return;
+  const btns = el.querySelectorAll('.action-btn');
+  if(btns[0]) {
+    btns[0].className = `action-btn ${post.liked?'liked':''}`;
+    btns[0].innerHTML = `<span class="icon">${post.liked?'♥':'♡'}</span> ${post.likes}`;
+  }
+  if(btns[1]) btns[1].innerHTML = `<span class="icon">💬</span> ${post.comments.length}`;
+}
+
+// ─── 좋아요 ──────────────────────────────────────────────────
+function toggleLike(postId) {
+  const post = state.posts.find(p=>p.id===postId);
+  if(!post) return;
+  post.liked = !post.liked;
+  post.likes += post.liked ? 1 : -1;
+  updatePostEl(post);
+  saveState();
+}
+
+// ─── 댓글 토글 ───────────────────────────────────────────────
+async function toggleComments(postId) {
+  const post = state.posts.find(p=>p.id===postId);
+  const section = document.getElementById('comments-'+postId);
+  if(!section) return;
+  if(section.style.display==='none') {
+    section.style.display='block';
+    renderComments(post, section);
+    if(!post.commentsLoaded && !post.isUser) {
+      post.commentsLoaded = true;
+      await generateCommentsForPost(post, section, 2+Math.floor(Math.random()*3));
+    }
+  } else {
+    section.style.display='none';
+  }
+}
+
+function renderComments(post, section) {
+  section.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'comments-section';
+  post.comments.forEach(c => wrap.appendChild(renderComment(c)));
+  section.appendChild(wrap);
+  const inputWrap = document.createElement('div');
+  inputWrap.style.cssText = 'display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);';
+  inputWrap.innerHTML = `
+    <div class="comment-avatar" style="background:#ff4545;">${esc(state.user.name.slice(0,1))}</div>
+    <div style="flex:1;">
+      <input type="text" placeholder="댓글 달기..." style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:8px 14px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;" id="ci-${post.id}">
+    </div>
+    <button onclick="submitComment(${post.id})" style="background:none;border:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);">게시</button>
+  `;
+  section.appendChild(inputWrap);
+}
+
+function renderComment(c) {
+  const div = document.createElement('div');
+  div.className = 'comment-item';
+  div.innerHTML = `
+    <div class="comment-avatar" style="background:${c.bg||'#555'};">${esc(c.emoji||c.name.slice(0,1))}</div>
+    <div class="comment-body">
+      <div class="comment-header">
+        <span class="comment-name">${esc(c.name)}</span>
+        <span class="comment-handle">@${esc(c.handle)}</span>
+        <span class="comment-time">${timeAgo(c.ts)}</span>
+      </div>
+      <div class="comment-text">${esc(c.text).replace(/\n/g,'<br>')}</div>
+      <button class="comment-like">♡ ${c.likes||0}</button>
+    </div>
+  `;
+  return div;
+}
+
+// ─── 댓글 제출 (사용자) ─────────────────────────────────────
+async function submitComment(postId) {
+  const input = document.getElementById('ci-'+postId);
+  if(!input) return;
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  const post = state.posts.find(p=>p.id===postId);
+  const comment = {
+    id: Date.now(), name: state.user.name, handle: state.user.handle,
+    bg: '#ff4545', emoji: state.user.name.slice(0,1),
+    text, ts: Date.now(), likes: 0, isUser: true,
+  };
+  post.comments.push(comment);
+  const section = document.getElementById('comments-'+postId);
+  renderComments(post, section);
+  updatePostEl(post);
+  // AI 답글 (더 높은 확률)
+  const replyCount = Math.random()<0.4 ? 2 : Math.random()<0.7 ? 1 : 0;
+  for(let i=0; i<replyCount; i++) {
+    setTimeout(()=>addAICommentReply(post, comment, section), (i+1)*(2000+Math.random()*3000));
+  }
+}
+
+// ─── AI 댓글 생성 ────────────────────────────────────────────
+async function generateCommentsForPost(post, section, count) {
+  const commenters = randomAccounts(count, post.accountId);
+  for(let i=0; i<commenters.length; i++) {
+    await new Promise(r=>setTimeout(r, 500+Math.random()*1000));
+    const acc = commenters[i];
+    const text = await callClaudeForComment(post, acc);
+    if(!text) continue;
+    const comment = {
+      id: Date.now()+i, name: acc.name, handle: acc.handle, bg: acc.bg, emoji: acc.emoji,
+      text, ts: Date.now()-Math.floor(Math.random()*300000),
+      likes: Math.floor(Math.random()*15),
+    };
+    post.comments.push(comment);
+    const wrap = section.querySelector('.comments-section');
+    if(wrap) wrap.appendChild(renderComment(comment));
+    updatePostEl(post);
+    saveState();
+  }
+}
+
+async function autoGenerateComments() {
+  const targets = state.posts.filter(p=>!p.commentsLoaded).slice(0,6);
+  for(const post of targets) {
+    post.commentsLoaded = true;
+    if(Math.random()<0.65) {
+      const count = Math.floor(Math.random()*4)+1;
+      const commenters = randomAccounts(count, post.accountId);
+      for(const acc of commenters) {
+        const text = await callClaudeForComment(post, acc);
+        if(!text) continue;
+        post.comments.push({
+          id: Date.now()+Math.random(), name: acc.name, handle: acc.handle, bg: acc.bg, emoji: acc.emoji,
+          text, ts: post.ts+Math.floor(Math.random()*600000),
+          likes: Math.floor(Math.random()*12),
+        });
+        await new Promise(r=>setTimeout(r,200));
+      }
+      if(Math.random()<0.5) post.likes += Math.floor(Math.random()*8)+1;
+      updatePostEl(post);
+    }
+  }
+}
+
+async function addAICommentReply(post, userComment, section) {
+  const acc = randomAccount(post.accountId);
+  const text = await callClaudeForReply(post, userComment, acc);
+  if(!text) return;
+  const comment = { id: Date.now(), name: acc.name, handle: acc.handle, bg: acc.bg, emoji: acc.emoji, text, ts: Date.now(), likes: 0 };
+  post.comments.push(comment);
+  if(section&&section.style.display!=='none') {
+    const wrap = section.querySelector('.comments-section');
+    if(wrap) wrap.appendChild(renderComment(comment));
+  }
+  updatePostEl(post);
+}
+
+// ─── AI 새 포스트 생성 ───────────────────────────────────────
+// 이전 포스트 내용을 컨텍스트로 넘겨 다양한 글 유도
+async function generateNewAIPost() {
+  const acc = randomAccount(null);
+  const topics = ['게임','음식','일상','밈','공부','연애','운동','영화','음악','직장','취업','날씨','산책','쇼핑','기분'];
+
+  // 최근 AI 포스트 내용 (중복 방지)
+  const recentTexts = state.posts.filter(p=>!p.isUser).slice(-5).map(p=>p.text).join(' / ');
+
+  // 이미지 포스트 여부 (25% 확률)
+  const withImg = Math.random() < 0.25;
+  const topic = topics[Math.floor(Math.random()*topics.length)];
+
+  const text = await callClaudeForPost(acc, topic, recentTexts, withImg);
+  if(!text) return;
+
+  let imgData = null;
+  let imgEmoji = null;
+  let imgBg = null;
+  let imgCaption = null;
+
+  if(withImg) {
+    // 주제에 맞는 이모지 이미지 선택
+    const imgMap = {
+      '음식':['🍜','🍕','🍣','🍔','🥘','🍱'],
+      '운동':['💪','🏃','🧘','🏋️'],
+      '여행':['🌅','🗼','🌊','⛰️'],
+      '일상':['☕','🌙','🪴','🛋️'],
+      '게임':['🎮','🕹️','👾'],
+      '고양이':['🐱','🐈'],
+      '공부':['📚','✏️','📖'],
+      '음악':['🎵','🎤','🎧'],
+    };
+    const topicKey = Object.keys(imgMap).find(k=>topic.includes(k)||acc.interests.some(i=>i.includes(k)));
+    const emojiList = topicKey ? imgMap[topicKey] : ['📸','🌿','✨'];
+    imgEmoji = emojiList[Math.floor(Math.random()*emojiList.length)];
+    imgBg = ['#0a0a14','#140a0a','#0a140a','#0d0d1a','#1a0d0a'][Math.floor(Math.random()*5)];
+    imgCaption = topic;
+  }
+
+  const post = {
+    id: ++state.postIdCounter,
+    accountId: acc.id, name: acc.name, handle: acc.handle, emoji: acc.emoji, bg: acc.bg,
+    text, ts: Date.now(),
+    likes: Math.floor(Math.random()*20), liked: false,
+    comments: [], commentsLoaded: false,
+    topic, isUser: false,
+    hasImg: withImg, imgData, imgEmoji, imgBg, imgCaption,
+  };
+  state.posts.push(post);
+  addPostToFeed(post);
+  saveState();
+
+  // 댓글 달기
+  if(Math.random()<0.55) {
+    const section = document.getElementById('comments-'+post.id);
+    if(section) {
+      post.commentsLoaded = true;
+      await generateCommentsForPost(post, section, 1+Math.floor(Math.random()*2));
+    }
+  }
+}
+
+// ─── Claude API 호출 ─────────────────────────────────────────
+async function callClaudeForComment(post, commenter) {
+  const dice = Math.random();
+  const lengthHint = dice<0.5 ? '10자 이하 초단문' : dice<0.85 ? '1~2문장' : '3~5문장';
+  const hasImage = post.hasImg || post.imgData;
+  const imgNote = hasImage ? `\n게시물에 사진도 첨부됨 (이모지: ${post.imgEmoji||'사진'})` : '';
+
+  const prompt = `너는 한국 SNS 사용자 "${commenter.name}"(타입: ${commenter.type}, 말투: ${commenter.tone})이야.
+아래 게시물에 댓글을 달아.${imgNote}
+
+게시물 작성자: ${post.name}
+게시물 내용: ${post.text}
+
+규칙:
+- 절대 챗봇처럼 말하지 마 ("힘드셨겠네요" 같은 거 금지)
+- 실제 한국 SNS 댓글처럼 자연스럽게
+- 줄임말, ㅋㅋ, ㅠㅠ 같은 표현 자유롭게
+- 길이: ${lengthHint}
+- 댓글 텍스트만 출력 (설명 없이)`;
+
+  return callClaude(prompt, 100);
+}
+
+async function callClaudeForReply(post, userComment, replier) {
+  const prompt = `너는 한국 SNS 사용자 "${replier.name}"(타입: ${replier.type}, 말투: ${replier.tone})이야.
+아래 댓글에 리플 달아.
+
+게시물: ${post.text}
+댓글: ${userComment.text}
+
+규칙:
+- 짧고 자연스럽게 (1~2문장, 대부분 한 줄)
+- 실제 SNS 리플 느낌
+- 댓글 텍스트만 출력`;
+
+  return callClaude(prompt, 80);
+}
+
+// 새 포스트 생성 - 최근 글 컨텍스트와 다양성 강조
+async function callClaudeForPost(acc, topic, recentTexts='', withImg=false) {
+  const imgHint = withImg ? '\n사진을 첨부하는 포스트야. 사진 찍었다는 언급 포함해.' : '';
+  // 타입별 상황 다양화
+  const situations = {
+    '일상': ['방금 일어남','퇴근함','밥 먹는 중','산책 중','멍 때리는 중','방 청소하다가','유튜브 보다가','잠 못 자고 있음'],
+    '게임': ['방금 졌음','연승 중','캐릭터 키우는 중','버그 발견','신맵 나옴','팀원이 문제','업데이트 후 망함'],
+    '음식': ['방금 먹음','먹으러 감','배달 시킴','직접 요리함','맛집 발견','실망한 음식','야식 고민 중'],
+    '공부': ['도서관에서','카페에서','집에서','시험 앞두고','포기하고 싶음','집중 안 됨','드디어 이해됨'],
+  };
+  const situation = (situations[topic]||situations['일상'])[Math.floor(Math.random()*8)];
+
+  const prompt = `너는 한국 SNS 사용자 "${acc.name}"(타입: ${acc.type}, 관심사: ${acc.interests.join(',')}, 말투: ${acc.tone})이야.
+지금 상황: ${situation}
+주제: ${topic}
+${imgHint}
+
+아래 최근 글들과 완전히 다른 내용으로 SNS 게시물을 써:
+최근 글들: ${recentTexts.slice(0,200)||'없음'}
+
+규칙:
+- 실제 한국인이 SNS에 올리는 것처럼 (인스타, 트위터 느낌)
+- 너무 완성도 높지 않아도 됨
+- 1~4줄 (장문형 계정은 더 길게 가능)
+- 게시물 텍스트만 출력 (설명 없이)
+- 최근 글과 완전히 다른 내용으로`;
+
+  return callClaude(prompt, 180);
+}
+
+// 사용자 게시물에 반응하는 AI (이미지 있으면 이미지 언급)
+async function callClaudeForUserPostComment(post, commenter) {
+  const hasImage = post.hasImg || post.imgData;
+  const imgNote = hasImage ? '\n(사용자가 사진을 함께 올렸음. 사진 내용에 반응해도 됨)' : '';
+
+  const prompt = `너는 한국 SNS 사용자 "${commenter.name}"(타입: ${commenter.type}, 말투: ${commenter.tone})이야.
+사용자가 올린 게시물에 댓글 달아.${imgNote}
+
+게시물: ${post.text}
+
+규칙:
+- 짧고 자연스럽게 (1~2문장)
+- 실제 SNS 댓글처럼
+- 사진 있으면 사진에도 반응 가능 ("사진 좋다", "어디임" 등)
+- 댓글 텍스트만 출력`;
+
+  return callClaude(prompt, 100);
+}
+
+async function callClaude(prompt, maxTokens=200) {
+  try {
+    const res = await fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{ parts:[{ text: prompt }] }],
+        generationConfig:{ maxOutputTokens: maxTokens, temperature: 1.0 }
+      })
+    });
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text ? text.trim() : null;
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+}
+
+// ─── 사용자 게시물 작성 ──────────────────────────────────────
+async function submitPost() {
+  const input = document.getElementById('postInput');
+  const text = input.value.trim();
+  if(!text && !pendingImg) return;
+  const imgData = pendingImg;
+  input.value = '';
+  removePendingImg();
+
+  const post = {
+    id: ++state.postIdCounter,
+    accountId: 'user', name: state.user.name, handle: state.user.handle,
+    emoji: state.user.name.slice(0,1), bg:'#ff4545',
+    text: text||'📷', ts: Date.now(),
+    likes: 0, liked: false, comments: [], commentsLoaded: true,
+    isUser: true,
+    hasImg: !!imgData, imgData: imgData||null, imgEmoji:null, imgBg:null,
+  };
+  state.posts.push(post);
+  addPostToFeed(post);
+  document.getElementById('statPosts').textContent = state.posts.filter(p=>p.isUser).length;
+  showToast('게시됨 ✓');
+  saveState();
+
+  // AI들이 반응
+  const respondCount = Math.floor(Math.random()*4)+2;
+  const commenters = randomAccounts(respondCount, null);
+  for(let i=0; i<commenters.length; i++) {
+    setTimeout(async()=>{
+      const acc = commenters[i];
+      const t = await callClaudeForUserPostComment(post, acc);
+      if(!t) return;
+      const comment = {
+        id: Date.now()+i, name: acc.name, handle: acc.handle, bg: acc.bg, emoji: acc.emoji,
+        text: t, ts: Date.now(), likes: Math.floor(Math.random()*5),
+      };
+      post.comments.push(comment);
+      if(Math.random()<0.5) post.likes++;
+      updatePostEl(post);
+      saveState();
+      const section = document.getElementById('comments-'+post.id);
+      if(section&&section.style.display!=='none') {
+        const wrap = section.querySelector('.comments-section');
+        if(wrap) wrap.appendChild(renderComment(comment));
+      }
+    }, (i+1)*(2000+Math.random()*4000));
+  }
+}
+
+// ─── UI 유틸 ─────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(t=>t.classList.remove('active'));
+  document.getElementById(page+'Page').classList.add('active');
+  const navTab = document.getElementById('tab-'+page);
+  const bnavBtn = document.getElementById('bnav-'+page);
+  if(navTab) navTab.classList.add('active');
+  if(bnavBtn) bnavBtn.classList.add('active');
+  if(page==='profile') renderMyProfile();
+}
+
+function renderMyProfile() {
+  const myPosts = state.posts.filter(p=>p.isUser).reverse();
+  const feed = document.getElementById('myFeed');
+  feed.innerHTML = '';
+  if(myPosts.length===0) {
+    feed.innerHTML = '<div class="empty"><div class="empty-icon">🌑</div><div>아직 게시물이 없어요</div></div>';
+    return;
+  }
+  myPosts.forEach(p=>{ feed.appendChild(renderPost(p)); });
+  document.getElementById('statPosts').textContent = myPosts.length;
+  document.getElementById('statLikes').textContent = myPosts.reduce((s,p)=>s+p.likes,0);
+}
+
+function focusComposer() {
+  showPage('feed');
+  document.getElementById('postInput').focus();
+}
+
+function sharePost(id) { showToast('링크가 복사됐어요'); }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+document.addEventListener('keydown', e => {
+  if(e.key==='Enter' && e.ctrlKey && document.getElementById('postInput')===document.activeElement) {
+    submitPost();
+  }
+});
+</script>
+</body>
+</html>
