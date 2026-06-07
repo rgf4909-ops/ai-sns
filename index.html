@@ -91,8 +91,33 @@
   .action-btn.rted{color:var(--rt);}
   .action-count{font-size:13px;}
 
-  /* RT 라벨 */
-  .rt-label{display:flex;align-items:center;gap:6px;padding:4px 16px 0 56px;color:var(--text2);font-size:13px;font-weight:500;}
+  /* RT 팝업 */
+  .rt-popup{position:fixed;background:#1e2732;border:1px solid var(--border);border-radius:16px;padding:4px 0;z-index:300;min-width:200px;box-shadow:0 4px 24px rgba(0,0,0,0.5);}
+  .rt-popup-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;font-size:15px;font-weight:500;color:var(--text);transition:background 0.1s;}
+  .rt-popup-item:hover{background:rgba(255,255,255,0.05);}
+  .rt-popup-item svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;}
+  .rt-overlay{position:fixed;inset:0;z-index:299;}
+
+  /* 인용 모달 */
+  .quote-modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .quote-modal-inner{background:#000;border:1px solid var(--border);border-radius:16px;width:100%;max-width:540px;padding:16px;}
+  .quote-modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .quote-close{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+  .quote-close:hover{background:rgba(255,255,255,0.1);}
+  .quote-composer{display:flex;gap:12px;margin-bottom:12px;}
+  .quote-composer textarea{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--font);font-size:17px;resize:none;min-height:80px;}
+  .quote-original{border:1px solid var(--border);border-radius:12px;padding:12px;}
+  .quote-original-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:13px;}
+  .quote-original-name{font-weight:700;color:var(--text);}
+  .quote-original-handle{color:var(--text2);}
+  .quote-original-text{font-size:14px;color:var(--text);line-height:1.5;}
+  .quote-submit-row{display:flex;justify-content:flex-end;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;}
+
+  /* 트렌드 사이드바 느낌 - 탐라 상단 */
+  .trend-bar{border-bottom:1px solid var(--border);padding:12px 16px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
+  .trend-bar::-webkit-scrollbar{display:none;}
+  .trend-tag{background:rgba(29,155,240,0.1);color:var(--accent);border:1px solid rgba(29,155,240,0.3);border-radius:9999px;padding:5px 12px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background 0.15s;}
+  .trend-tag:hover{background:rgba(29,155,240,0.2);}
 
   /* REPLIES (댓글) */
   .replies-wrap{border-top:1px solid var(--border);}
@@ -256,6 +281,7 @@
         </div>
       </div>
     </div>
+    <div class="trend-bar" id="trendBar"></div>
     <div class="feed" id="feedContainer"></div>
   </div>
 
@@ -491,13 +517,34 @@ function initFeed(isNew = true) {
     setTimeout(()=>{ autoGenerateComments(); }, 800);
   }
   renderFeed();
+  renderTrendBar();
   scheduleNextAIPost();
+}
+
+// ─── 트렌드 바 ───────────────────────────────────────────────
+const TRENDS = ['#롤', '#먹방', '#연애피셜', '#번아웃', '#주식폭락', '#갓생', '#야구', '#수능', '#취준', '#오늘급식', '#밤샘', '#카페인중독', '#인간관계', '#넷플릭스'];
+function renderTrendBar() {
+  const bar = document.getElementById('trendBar');
+  if(!bar) return;
+  // 랜덤 5개 트렌드 표시
+  const shown = [...TRENDS].sort(()=>Math.random()-0.5).slice(0,5);
+  bar.innerHTML = shown.map(t=>`<span class="trend-tag" onclick="clickTrend('${t}')">${t}</span>`).join('');
+}
+function clickTrend(tag) {
+  document.getElementById('postInput').value = tag+' ';
+  document.getElementById('postInput').focus();
+  showPage('feed');
 }
 
 function scheduleNextAIPost() {
   const delay = 15000 + Math.random()*20000;
   setTimeout(async()=>{
-    await generateNewAIPost();
+    // 30% 확률로 AI가 기존 포스트를 인용해서 토론
+    if(Math.random()<0.3 && state.posts.length>5) {
+      await generateAIQuotePost();
+    } else {
+      await generateNewAIPost();
+    }
     scheduleNextAIPost();
   }, delay);
 }
@@ -532,7 +579,25 @@ function renderPost(post) {
       </div>`;
   }
 
+  const rtLabel = post.rtBy ? `<div class="rt-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46L18.5 16.45V8c0-1.1-.896-2-2-2z"/></svg>${esc(post.rtBy)} 님이 재게시했습니다</div>` : '';
+
+  // 인용된 원본 포스트 박스
+  let quoteHtml = '';
+  if(post.quoteOf) {
+    const orig = state.posts.find(p=>p.id===post.quoteOf);
+    if(orig) quoteHtml = `
+      <div class="quote-box" onclick="event.stopPropagation()">
+        <div class="quote-header">
+          <div class="quote-avatar-sm" style="background:${orig.bg};">${esc(orig.emoji||orig.name.slice(0,1))}</div>
+          <span class="quote-name">${esc(orig.name)}</span>
+          <span class="quote-handle">@${esc(orig.handle)}</span>
+        </div>
+        <div class="quote-text">${esc(orig.text).replace(/\n/g,'<br>')}</div>
+      </div>`;
+  }
+
   div.innerHTML = `
+    ${rtLabel}
     <div class="post-inner">
       <div class="avatar" style="background:${post.bg};">${avatarContent}</div>
       <div class="post-body">
@@ -545,12 +610,13 @@ function renderPost(post) {
         </div>
         <div class="post-text">${esc(post.text).replace(/\n/g,'<br>')}</div>
         ${mediaHtml}
+        ${quoteHtml}
         <div class="post-actions">
           <button class="action-btn reply-btn" onclick="toggleComments(${post.id})">
             <svg viewBox="0 0 24 24"><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 7.879 3.77 7.879 8.051 0 4.49-3.396 7.949-7.879 7.949H9.21c-.782 0-1.508-.508-1.729-1.262l-.065-.238A3.995 3.995 0 005.5 15.5H2.75a1 1 0 01-1-1V10z"/></svg>
             <span class="action-count">${post.comments.length||''}</span>
           </button>
-          <button class="action-btn rt-btn ${post.rted?'rted':''}" onclick="toggleRT(${post.id})">
+          <button class="action-btn rt-btn ${post.rted?'rted':''}" onclick="showRTPopup(event,${post.id})">
             <svg viewBox="0 0 24 24"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46L18.5 16.45V8c0-1.1-.896-2-2-2z"/></svg>
             <span class="action-count">${post.rts||''}</span>
           </button>
@@ -601,13 +667,131 @@ function toggleLike(postId) {
   saveState();
 }
 
-function toggleRT(postId) {
+// ─── RT 팝업 ─────────────────────────────────────────────────
+function showRTPopup(e, postId) {
+  e.stopPropagation();
+  closeRTPopup();
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const overlay = document.createElement('div');
+  overlay.className = 'rt-overlay';
+  overlay.onclick = closeRTPopup;
+  const popup = document.createElement('div');
+  popup.className = 'rt-popup';
+  popup.id = 'rt-popup';
+  popup.style.top = (rect.bottom+4)+'px';
+  popup.style.left = (rect.left-40)+'px';
+  const post = state.posts.find(p=>p.id===postId);
+  const isRted = post&&post.rted;
+  popup.innerHTML = `
+    <div class="rt-popup-item" onclick="doRepost(${postId})">
+      <svg viewBox="0 0 24 24"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46L18.5 16.45V8c0-1.1-.896-2-2-2z"/></svg>
+      ${isRted?'재게시 취소':'재게시'}
+    </div>
+    <div class="rt-popup-item" onclick="openQuoteModal(${postId})">
+      <svg viewBox="0 0 24 24"><path d="M21 3L3 10.5v1l6 2.5 2.5 6h1L21 3z"/></svg>
+      인용
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.appendChild(popup);
+}
+
+function closeRTPopup() {
+  document.getElementById('rt-popup')?.remove();
+  document.querySelectorAll('.rt-overlay').forEach(el=>el.remove());
+}
+
+function doRepost(postId) {
+  closeRTPopup();
   const post = state.posts.find(p=>p.id===postId);
   if(!post) return;
   post.rted = !post.rted;
-  post.rts = (post.rts||0) + (post.rted ? 1 : -1);
+  post.rts = (post.rts||0) + (post.rted?1:-1);
   updatePostEl(post);
-  showToast(post.rted ? '리트윗했습니다' : '리트윗을 취소했습니다');
+  if(post.rted) {
+    // 탐라에 RT 포스트 추가
+    const rtPost = {
+      id: ++state.postIdCounter,
+      accountId: 'user', name: post.name, handle: post.handle,
+      emoji: post.emoji, bg: post.bg,
+      text: post.text, ts: Date.now(),
+      likes: post.likes, liked: false, rts: post.rts||0,
+      comments: [...post.comments], commentsLoaded: true,
+      isUser: false, hasImg: post.hasImg, imgData: post.imgData,
+      imgEmoji: post.imgEmoji, imgBg: post.imgBg, imgCaption: post.imgCaption,
+      rtBy: state.user.name, // 재게시 라벨
+    };
+    state.posts.push(rtPost);
+    addPostToFeed(rtPost);
+    showToast('재게시했습니다');
+  } else {
+    // RT 취소: rtBy가 내 이름인 포스트 제거
+    const idx = state.posts.findIndex(p=>p.rtBy===state.user.name && p.text===post.text && p.id!==postId);
+    if(idx>-1) {
+      const el = document.getElementById('post-'+state.posts[idx].id);
+      el?.remove();
+      document.getElementById('comments-'+state.posts[idx].id)?.remove();
+      state.posts.splice(idx,1);
+      showToast('재게시를 취소했습니다');
+    }
+  }
+  saveState();
+}
+
+// ─── 인용 모달 ────────────────────────────────────────────────
+function openQuoteModal(postId) {
+  closeRTPopup();
+  const post = state.posts.find(p=>p.id===postId);
+  if(!post) return;
+  const modal = document.createElement('div');
+  modal.className = 'quote-modal';
+  modal.id = 'quote-modal';
+  modal.innerHTML = `
+    <div class="quote-modal-inner">
+      <div class="quote-modal-header">
+        <button class="quote-close" onclick="closeQuoteModal()">✕</button>
+        <button class="post-btn" onclick="submitQuote(${postId})">게시하기</button>
+      </div>
+      <div class="quote-composer">
+        <div class="avatar" style="background:#1d9bf0;">${esc(state.user.name.slice(0,1))}</div>
+        <textarea id="quoteInput" placeholder="인용에 추가하기..."></textarea>
+      </div>
+      <div class="quote-original">
+        <div class="quote-original-header">
+          <div style="width:16px;height:16px;border-radius:50%;background:${post.bg};display:inline-flex;align-items:center;justify-content:center;font-size:8px;color:white;">${esc(post.emoji||post.name.slice(0,1))}</div>
+          <span class="quote-original-name">${esc(post.name)}</span>
+          <span class="quote-original-handle">@${esc(post.handle)}</span>
+        </div>
+        <div class="quote-original-text">${esc(post.text).replace(/\n/g,'<br>')}</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  setTimeout(()=>document.getElementById('quoteInput')?.focus(),100);
+}
+
+function closeQuoteModal() { document.getElementById('quote-modal')?.remove(); }
+
+function submitQuote(postId) {
+  const input = document.getElementById('quoteInput');
+  const text = (input?.value||'').trim();
+  closeQuoteModal();
+  const orig = state.posts.find(p=>p.id===postId);
+  if(!orig) return;
+  const qPost = {
+    id: ++state.postIdCounter,
+    accountId:'user', name:state.user.name, handle:state.user.handle,
+    emoji:state.user.name.slice(0,1), bg:'#1d9bf0',
+    text: text||'📌', ts: Date.now(),
+    likes:0, liked:false, rts:0, comments:[], commentsLoaded:true,
+    isUser:true, quoteOf:postId,
+  };
+  state.posts.push(qPost);
+  addPostToFeed(qPost);
+  orig.rts = (orig.rts||0)+1;
+  updatePostEl(orig);
+  showToast('인용 게시물을 올렸습니다');
   saveState();
 }
 
@@ -743,6 +927,42 @@ async function addAICommentReply(post, userComment, section) {
     if(wrap) wrap.appendChild(renderComment(comment));
   }
   updatePostEl(post);
+}
+
+// ─── AI 인용 토론 포스트 ──────────────────────────────────────
+async function generateAIQuotePost() {
+  // 최근 포스트 중 하나를 골라 다른 AI가 인용
+  const targets = state.posts.filter(p=>!p.rtBy&&!p.quoteOf).slice(-20);
+  if(!targets.length) return;
+  const orig = targets[Math.floor(Math.random()*targets.length)];
+  const acc = randomAccount(orig.accountId);
+
+  const prompt = `너는 한국 트위터 유저 "${acc.name}"(${acc.type}, 말투: ${acc.tone})야.
+아래 트윗을 인용해서 한마디 해. 동의/반박/드립/공감 뭐든 OK.
+
+원트윗: ${orig.text}
+
+규칙:
+- 1~2줄, 짧게
+- ㅋㅋ ㄹㅇ 등 트위터 말투
+- 텍스트만 출력`;
+
+  const text = await callClaude(prompt, 100);
+  if(!text) return;
+
+  const qPost = {
+    id: ++state.postIdCounter,
+    accountId: acc.id, name: acc.name, handle: acc.handle, emoji: acc.emoji, bg: acc.bg,
+    text, ts: Date.now(),
+    likes: Math.floor(Math.random()*15), liked: false, rts: 0,
+    comments: [], commentsLoaded: false,
+    isUser: false, quoteOf: orig.id,
+  };
+  state.posts.push(qPost);
+  addPostToFeed(qPost);
+  orig.rts = (orig.rts||0)+1;
+  updatePostEl(orig);
+  saveState();
 }
 
 // ─── AI 새 포스트 생성 ───────────────────────────────────────
