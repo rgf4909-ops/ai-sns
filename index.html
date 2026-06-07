@@ -461,34 +461,32 @@ function renderPost(post) {
   }
 
   div.innerHTML = `
-    <div class="avatar" style="background:${post.bg};">${avatarContent}</div>
-    <div class="post-body">
-      <div class="post-header">
-        <span class="post-name">${esc(post.name)}</span>
-        <span class="post-handle">@${esc(post.handle)}</span>
-        <span class="post-time">${timeAgo(post.ts)}</span>
-      </div>
-      <div class="post-text">${esc(post.text).replace(/\n/g,'<br>')}</div>
-      ${mediaHtml}
-      <div class="post-actions">
-        <button class="action-btn ${post.liked?'liked':''}" onclick="toggleLike(${post.id})">
-          <span class="icon">${post.liked?'♥':'♡'}</span> ${post.likes}
-        </button>
-        <button class="action-btn" onclick="toggleComments(${post.id})">
-          <span class="icon">💬</span> ${post.comments.length}
-        </button>
-        <button class="action-btn" onclick="sharePost(${post.id})">
-          <span class="icon">↗</span>
-        </button>
+    <div style="display:flex;gap:12px;padding:16px;">
+      <div class="avatar" style="background:${post.bg};">${avatarContent}</div>
+      <div class="post-body">
+        <div class="post-header">
+          <span class="post-name">${esc(post.name)}</span>
+          <span class="post-handle">@${esc(post.handle)}</span>
+          <span class="post-time">${timeAgo(post.ts)}</span>
+        </div>
+        <div class="post-text">${esc(post.text).replace(/\n/g,'<br>')}</div>
+        ${mediaHtml}
+        <div class="post-actions">
+          <button class="action-btn ${post.liked?'liked':''}" onclick="toggleLike(${post.id})">
+            <span class="icon">${post.liked?'♥':'♡'}</span> ${post.likes}
+          </button>
+          <button class="action-btn" onclick="toggleComments(${post.id})">
+            <span class="icon">💬</span> ${post.comments.length}
+          </button>
+          <button class="action-btn" onclick="sharePost(${post.id})">
+            <span class="icon">↗</span>
+          </button>
+        </div>
       </div>
     </div>
+    <div id="comments-${post.id}" style="display:none;border-top:1px solid var(--border);"></div>
   `;
-
-  const commSection = document.createElement('div');
-  commSection.id = 'comments-'+post.id;
-  commSection.style.display = 'none';
-  commSection.style.borderBottom = '1px solid var(--border)';
-  div.after(commSection);
+  div.style.padding = '0';
   return div;
 }
 
@@ -766,22 +764,20 @@ async function callClaudeForPost(acc, topic, recentTexts='', withImg=false) {
   };
   const situation = (situations[topic]||situations['일상'])[Math.floor(Math.random()*8)];
 
-  const prompt = `너는 한국 SNS 사용자 "${acc.name}"(타입: ${acc.type}, 관심사: ${acc.interests.join(',')}, 말투: ${acc.tone})이야.
-지금 상황: ${situation}
-주제: ${topic}
+  const prompt = `너는 한국 트위터 유저 "${acc.name}"(${acc.type}, 말투: ${acc.tone})야.
+상황: ${situation} / 주제: ${topic}
 ${imgHint}
 
-아래 최근 글들과 완전히 다른 내용으로 SNS 게시물을 써:
-최근 글들: ${recentTexts.slice(0,200)||'없음'}
+한국 트위터에 글 올려. 아래 최근 글들과 다른 내용으로.
+최근: ${recentTexts.slice(0,150)||'없음'}
 
 규칙:
-- 실제 한국인이 SNS에 올리는 것처럼 (인스타, 트위터 느낌)
-- 너무 완성도 높지 않아도 됨
-- 1~4줄 (장문형 계정은 더 길게 가능)
-- 게시물 텍스트만 출력 (설명 없이)
-- 최근 글과 완전히 다른 내용으로`;
+- 1~2줄이 기본. 절대 길게 쓰지 마 (장문형도 3줄 최대)
+- ㅋㅋ ㅠㅠ ㄹㅇ 임 함 됨 등 줄임말 필수
+- 유행어/밈 자연스럽게 섞기
+- 텍스트만 출력`;
 
-  return callClaude(prompt, 180);
+  return callClaude(prompt, 120);
 }
 
 // 사용자 게시물에 반응하는 AI (이미지 있으면 이미지 언급)
