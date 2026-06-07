@@ -91,6 +91,12 @@
   .action-btn.rted{color:var(--rt);}
   .action-count{font-size:13px;}
 
+  /* 피드 탭 */
+  .feed-tabs{display:flex;border-bottom:1px solid var(--border);}
+  .feed-tab{flex:1;background:none;border:none;color:var(--text2);height:53px;font-size:15px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;font-family:var(--font);}
+  .feed-tab:hover{background:rgba(255,255,255,0.03);}
+  .feed-tab.active{color:var(--text);border-bottom-color:var(--accent);font-weight:700;}
+
   /* RT 팝업 */
   .rt-popup{position:fixed;background:#1e2732;border:1px solid var(--border);border-radius:16px;padding:4px 0;z-index:300;min-width:200px;box-shadow:0 4px 24px rgba(0,0,0,0.5);}
   .rt-popup-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;font-size:15px;font-weight:500;color:var(--text);transition:background 0.1s;}
@@ -264,6 +270,10 @@
 
   <!-- FEED PAGE -->
   <div class="page active" id="feedPage">
+    <div class="feed-tabs">
+      <button class="feed-tab active" id="ftab-foryou" onclick="switchFeedTab('foryou')">추천</button>
+      <button class="feed-tab" id="ftab-following" onclick="switchFeedTab('following')">팔로잉</button>
+    </div>
     <div class="composer">
       <div class="avatar" id="composerAvatar" style="background:#1d9bf0;">나</div>
       <div class="composer-body">
@@ -283,6 +293,17 @@
     </div>
     <div class="trend-bar" id="trendBar"></div>
     <div class="feed" id="feedContainer"></div>
+  </div>
+
+  <!-- 인용 목록 모달 -->
+  <div id="quotesModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:400;overflow-y:auto;">
+    <div style="max-width:600px;margin:0 auto;background:#000;min-height:100vh;border-left:1px solid var(--border);border-right:1px solid var(--border);">
+      <div style="position:sticky;top:0;background:rgba(0,0,0,0.9);backdrop-filter:blur(12px);padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;">
+        <button onclick="closeQuotesModal()" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;">←</button>
+        <span style="font-size:17px;font-weight:700;">인용</span>
+      </div>
+      <div id="quotesModalContent"></div>
+    </div>
   </div>
 
   <!-- PROFILE PAGE -->
@@ -353,8 +374,23 @@ const AI_ACCOUNTS = [
   { id:'a27', name:'오밥먹는사람', handle:'rice_oh', emoji:'🍚', bg:'#e17055', type:'밥형', interests:['음식'], tone:'밥 먹었냐고 물어봄. 밥 사진 올림.' },
   { id:'a28', name:'한솔로', handle:'alone_han', emoji:'🌙', bg:'#74b9ff', type:'혼자형', interests:['일상'], tone:'혼자 뭔가를 즐김. 고독함.' },
   { id:'a29', name:'신구경꾼', handle:'lurker_shin', emoji:'👀', bg:'#b2bec3', type:'구경형', interests:['밈','일상'], tone:'구경하다가 가끔 한마디. 짧음.' },
-  { id:'a30', name:'류번아웃', handle:'burnout_ryu', emoji:'🔥', bg:'#d63031', type:'번아웃형', interests:['일상','공부'], tone:'번아웃 중. 자조적인 유머.' }
+  { id:'a30', name:'류번아웃', handle:'burnout_ryu', emoji:'🔥', bg:'#d63031', type:'번아웃형', interests:['일상','공부'], tone:'번아웃 중. 자조적인 유머.' },
+  { id:'a31', name:'밈봇', handle:'meme_bot_kr', emoji:'🤖', bg:'#2d3436', type:'밈봇형', interests:['밈'], tone:'말 없이 밈/짤만 올림. 텍스트 없거나 한 단어.' },
+  { id:'a32', name:'익명제보', handle:'anon_tip', emoji:'📢', bg:'#636e72', type:'제보형', interests:['일상','뉴스'], tone:'익명 제보 형식. "제보받음:" 으로 시작.' },
+  { id:'a33', name:'트위터선생', handle:'twt_sensei', emoji:'🧑‍🏫', bg:'#0984e3', type:'정보형', interests:['일상','사회'], tone:'유용한 정보 공유. "알아두면 좋은 것:" 형식.' }
 ];
+
+// ─── 팔로잉 목록 (고정 10명) ────────────────────────────────
+const FOLLOWING_IDS = ['a1','a3','a9','a12','a20','a23','a2','a10','a26','a31'];
+
+// ─── 피드 탭 전환 ────────────────────────────────────────────
+let currentFeedTab = 'foryou';
+function switchFeedTab(tab) {
+  currentFeedTab = tab;
+  document.querySelectorAll('.feed-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('ftab-'+tab).classList.add('active');
+  renderFeed();
+}
 
 // ─── AI 이미지 포스트 테마 ───────────────────────────────────
 const AI_IMAGE_THEMES = [
@@ -553,7 +589,11 @@ function scheduleNextAIPost() {
 function renderFeed() {
   const container = document.getElementById('feedContainer');
   container.innerHTML = '';
-  state.posts.slice().reverse().forEach(post => container.appendChild(renderPost(post)));
+  let posts = state.posts.slice().reverse();
+  if(currentFeedTab === 'following') {
+    posts = posts.filter(p => p.isUser || FOLLOWING_IDS.includes(p.accountId) || p.rtBy);
+  }
+  posts.forEach(post => container.appendChild(renderPost(post)));
 }
 
 function renderPost(post) {
@@ -606,7 +646,7 @@ function renderPost(post) {
           <span class="post-handle">@${esc(post.handle)}</span>
           <span class="post-dot">·</span>
           <span class="post-time">${timeAgo(post.ts)}</span>
-          <button class="post-more">···</button>
+          <button class="post-more" onclick="event.stopPropagation();showPostMenu(event,${post.id})">···</button>
         </div>
         <div class="post-text">${esc(post.text).replace(/\n/g,'<br>')}</div>
         ${mediaHtml}
@@ -695,6 +735,46 @@ function showRTPopup(e, postId) {
   `;
   document.body.appendChild(overlay);
   document.body.appendChild(popup);
+}
+
+function showPostMenu(e, postId) {
+  closeRTPopup();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const overlay = document.createElement('div');
+  overlay.className = 'rt-overlay';
+  overlay.onclick = closeRTPopup;
+  const popup = document.createElement('div');
+  popup.className = 'rt-popup';
+  popup.id = 'rt-popup';
+  popup.style.top = (rect.bottom+4)+'px';
+  popup.style.right = '16px';
+  const quotes = state.posts.filter(p=>p.quoteOf===postId);
+  popup.innerHTML = `
+    <div class="rt-popup-item" onclick="openQuotesModal(${postId})">
+      <svg viewBox="0 0 24 24"><path d="M21 3L3 10.5v1l6 2.5 2.5 6h1L21 3z"/></svg>
+      인용 보기 (${quotes.length})
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.appendChild(popup);
+}
+
+function openQuotesModal(postId) {
+  closeRTPopup();
+  const modal = document.getElementById('quotesModal');
+  const content = document.getElementById('quotesModalContent');
+  const quotes = state.posts.filter(p=>p.quoteOf===postId);
+  content.innerHTML = '';
+  if(quotes.length===0) {
+    content.innerHTML = '<div class="empty">아직 인용이 없어요</div>';
+  } else {
+    quotes.forEach(q => content.appendChild(renderPost(q)));
+  }
+  modal.style.display = 'block';
+}
+
+function closeQuotesModal() {
+  document.getElementById('quotesModal').style.display = 'none';
 }
 
 function closeRTPopup() {
@@ -968,7 +1048,12 @@ async function generateAIQuotePost() {
 // ─── AI 새 포스트 생성 ───────────────────────────────────────
 // 이전 포스트 내용을 컨텍스트로 넘겨 다양한 글 유도
 async function generateNewAIPost() {
-  const acc = randomAccount(null);
+  // 밈봇/제보 계정은 특별 처리
+  const specialIds = ['a31','a32','a33'];
+  const useSpecial = Math.random() < 0.2;
+  const acc = useSpecial
+    ? AI_ACCOUNTS.find(a=>a.id===specialIds[Math.floor(Math.random()*specialIds.length)])
+    : randomAccount(null);
   const topics = ['게임','음식','일상','밈','공부','연애','운동','영화','음악','직장','취업','날씨','산책','쇼핑','기분'];
 
   // 최근 AI 포스트 내용 (중복 방지)
@@ -1035,18 +1120,17 @@ async function callClaudeForComment(post, commenter) {
   const hasImage = post.hasImg || post.imgData;
   const imgNote = hasImage ? `\n게시물에 사진도 첨부됨 (이모지: ${post.imgEmoji||'사진'})` : '';
 
-  const prompt = `너는 한국 SNS 사용자 "${commenter.name}"(타입: ${commenter.type}, 말투: ${commenter.tone})이야.
-아래 게시물에 댓글을 달아.${imgNote}
+  const prompt = `너는 한국 트위터 유저 "${commenter.name}"(${commenter.type}, 말투: ${commenter.tone})야.
+아래 트윗에 댓글 달아.${imgNote}
 
-게시물 작성자: ${post.name}
-게시물 내용: ${post.text}
+트윗: ${post.text}
 
 규칙:
-- 절대 챗봇처럼 말하지 마 ("힘드셨겠네요" 같은 거 금지)
-- 실제 한국 SNS 댓글처럼 자연스럽게
-- 줄임말, ㅋㅋ, ㅠㅠ 같은 표현 자유롭게
+- 챗봇 말투 절대 금지 ("힘드셨겠네요" "공감해요" 이런 거)
+- 트위터 말투: 띄어쓰기 적게, "~했음" "~나옴" "~포기함" "~한심해" 식으로 끝냄
+- 예시: "훈훈하군" "걍나옴" "나도이제포기함" "실화임?" "ㄹㅇㅋㅋ" "헉미쳤다" "공감100"
 - 길이: ${lengthHint}
-- 댓글 텍스트만 출력 (설명 없이)`;
+- 텍스트만 출력`;
 
   return callClaude(prompt, 100);
 }
@@ -1088,7 +1172,8 @@ ${imgHint}
 규칙:
 - 1~2줄이 기본. 절대 길게 쓰지 마 (장문형도 3줄 최대)
 - ㅋㅋ ㅠㅠ ㄹㅇ 임 함 됨 등 줄임말 필수
-- 유행어/밈 자연스럽게 섞기
+- 실제 트위터 말투: 띄어쓰기 안 하거나 적게, "~했음" "~같아서" "~나옴" "~포기함" "~한심해" 로 끝냄, 감정 직접적으로 씀, 문장 쭉 이어서 씀
+- 예시: "걍뚜벅뚜벅나옴" "나도이제포기함" "엉엉울었더니" "훈훈하군" "쫌 딸리나 했음" "너무거다라이같아서" "죄송해요 편하게 차단해주세요"
 - 텍스트만 출력`;
 
   return callClaude(prompt, 120);
